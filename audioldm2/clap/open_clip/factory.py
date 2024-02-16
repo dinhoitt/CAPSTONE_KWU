@@ -1,3 +1,10 @@
+"""
+주로 모델 구성 및 생성, 사전 훈련된 가중치의 로딩, 모델 구성 파일의 관리 등을 담당하는 기능들을 포함
+
+이 코드는 모델 구성 및 관리, 사전 훈련된 가중치의 로딩, 입력 데이터 전처리 설정 등 CLAP 모델을 사용하기 위한 다양한 기능을 제공. 
+모델 구성 파일을 통해 모델 아키텍처를 유연하게 정의하고 관리할 수 있으며, 다양한 사전 훈련된 가중치를 적용하여 모델을 초기화할 수 있음.
+"""
+
 import json
 import logging
 import os
@@ -12,13 +19,23 @@ from .openai import load_openai_model
 from .pretrained import get_pretrained_url, download_pretrained
 from .transform import image_transform
 
-_MODEL_CONFIG_PATHS = [Path(__file__).parent / f"model_configs/"]
-_MODEL_CONFIGS = {}  # directory (model_name: config) of model architecture configs
+# 모델 구성 파일이 위치한 경로를 저장하는 리스트. Path(__file__).parent / "model_configs/"를 통해 현재 스크립트 파일과 동일한 디렉터리에 있는 model_configs 폴더를 참조
+_MODEL_CONFIG_PATHS = [Path(__file__).parent / f"model_configs/"] 
+# 모델 이름과 해당 모델의 구성(config)을 매핑하는 딕셔너리. 모델 구성은 주로 json파일로 저장
+_MODEL_CONFIGS = {}
 
-
+"""
+_natural_key 함수
+문자열을 자연 정렬하기 위한 키를 생성. 숫자가 포함된 문자열을 정렬할 때 숫자 부분을 인식하여 자연스러운 순서로 정렬할 수 있게 도와줌
+"""
 def _natural_key(string_):
     return [int(s) if s.isdigit() else s for s in re.split(r"(\d+)", string_.lower())]
 
+"""
+_rescan_model_configs 함수
+_MODEL_CONFIG_PATHS에 지정된 경로들을 스캔하여 .json 확장자를 가진 모델 구성 파일들을 찾고, 이를 _MODEL_CONFIGS 딕셔너리에 로드. 
+이 함수는 모델 구성을 동적으로 관리할 수 있게 해줌.
+"""
 
 def _rescan_model_configs():
     global _MODEL_CONFIGS
@@ -50,6 +67,11 @@ def _rescan_model_configs():
 _rescan_model_configs()  # initial populate of model config registry
 
 
+"""
+load_state_dict 함수
+주어진 체크포인트 경로에서 모델의 상태 딕셔너리(state dict)를 로드하는 함수. skip_params 옵션을 통해 모듈 접두사를 제거할 수 있음.
+"""
+
 def load_state_dict(checkpoint_path: str, map_location="cpu", skip_params=True):
     checkpoint = torch.load(checkpoint_path, map_location=map_location)
     if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
@@ -65,6 +87,12 @@ def load_state_dict(checkpoint_path: str, map_location="cpu", skip_params=True):
     #         state_dict['text_branch.' + k[12:]] = v
     return state_dict
 
+"""
+create_model 함수
+모델 이름, 사전 훈련된 가중치, 정밀도, 장치 등의 매개변수를 기반으로 CLAP 모델 인스턴스를 생성하고 초기화. 
+사전 훈련된 모델을 로드하거나, 특정 구성에 맞게 모델을 조정할 수 있음.
+enable_fusion과 fusion_type 매개변수를 통해 모델의 특징 융합 방식을 설정할 수 있음.
+"""
 
 def create_model(
     amodel_name: str,
@@ -239,6 +267,11 @@ def create_model(
 
     return model, model_cfg
 
+"""
+create_model_and_transforms 함수
+모델과 데이터 전처리 변환(transform)을 생성. 
+이 함수는 모델을 생성하고, 모델에 맞는 이미지 사이즈로 입력 이미지를 변환하는 전처리 파이프라인을 설정
+"""
 
 def create_model_and_transforms(
     model_name: str,
@@ -262,11 +295,19 @@ def create_model_and_transforms(
     preprocess_val = image_transform(model.visual.image_size, is_train=False)
     return model, preprocess_train, preprocess_val
 
+"""
+list_models 함수
+사용 가능한 모델 아키텍처를 나열. 이는 _MODEL_CONFIGS 딕셔너리에 로드된 모델 구성을 기반으로 함.
+"""
 
 def list_models():
     """enumerate available model architectures based on config files"""
     return list(_MODEL_CONFIGS.keys())
 
+"""
+add_model_config 함수
+새로운 모델 구성 파일 또는 경로를 _MODEL_CONFIG_PATHS에 추가하고, _rescan_model_configs 함수를 호출하여 모델 구성을 갱신
+"""
 
 def add_model_config(path):
     """add model config path or file and update registry"""

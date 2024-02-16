@@ -27,6 +27,17 @@ from .feature_fusion import iAFF, AFF, DAF
 
 
 # from PyTorch internals
+"""
+이 코드는 다양한 형태의 입력을 받아 특정 길이의 튜플로 변환하는 유틸리티 함수들을 정의하는 부분. 
+PyTorch 내부에서 자주 사용되는 패턴으로, 모듈의 구성 요소에 대한 인자가 단일 값으로 주어지거나 여러 값을 포함하는 시퀀스(예: 리스트나 튜플)로 주어질 때, 이를 일관되게 처리하기 위해 사용됨.
+"""
+"""
+_ntuple(n)
+n: 반환되어야 하는 튜플의 길이.
+parse(x): 함수 내부에 정의된 내부 함수로, 입력 x를 처리하여 길이 n의 튜플로 변환.
+입력 x가 이미 반복 가능한 객체(collections.abc.Iterable의 인스턴스, 예를 들어 리스트나 튜플)인 경우, 그대로 반환.
+그렇지 않은 경우(예: 단일 숫자나 문자열 등), x를 n번 반복하여 길이 n의 튜플을 생성.
+"""
 def _ntuple(n):
     def parse(x):
         if isinstance(x, collections.abc.Iterable):
@@ -35,6 +46,17 @@ def _ntuple(n):
 
     return parse
 
+"""
+이들은 _ntuple 함수를 사용하여 미리 정의된 길이의 튜플 생성 함수.
+예를 들어, to_2tuple 함수는 주어진 입력을 길이가 2인 튜플로 변환. 
+이는 모델 구성 요소에 대한 파라미터가 2차원 형태로 필요할 때 유용하게 사용됨(예: 이미지의 너비와 높이)
+"""
+"""
+이러한 함수들은 모델의 파라미터를 더 유연하게 처리할 수 있게 해줌. 
+예를 들어, 컨볼루션 레이어에서 커널 크기나 스트라이드 값을 설정할 때, 
+모든 차원에 동일한 값을 적용하고자 할 때 단일 숫자를 제공할 수 있고, 각 차원에 다른 값을 적용하고자 할 때는 튜플을 제공할 수 있음. 
+이를 통해 코드의 가독성과 유연성이 향상됨.
+"""
 
 to_1tuple = _ntuple(1)
 to_2tuple = _ntuple(2)
@@ -42,6 +64,15 @@ to_3tuple = _ntuple(3)
 to_4tuple = _ntuple(4)
 to_ntuple = _ntuple
 
+"""
+drop_path 함수
+x: 입력 텐서.
+drop_prob: 드롭될 확률입니다. 예를 들어 0.1이면 텐서의 각 샘플에 대해 10% 확률로 경로가 드롭됨.
+training: 모델이 훈련 모드에 있는지 여부를 나타내는 불리언 값. 테스트 시에는 드롭 패스를 적용하지 않기 위해 사용됨.
+이 함수는 주어진 확률에 따라 입력 텐서의 일부 경로를 무작위로 드롭함. 
+실제로는 입력 텐서의 각 샘플에 대해 독립적으로 드롭 패스 마스크를 생성하고, 
+이를 통해 일부 출력을 0으로 만들어 버리는 대신, 드롭되지 않은 출력을 보정하기 위해 남은 출력을 keep_prob로 나누어 크기를 조정.
+"""
 
 def drop_path(x, drop_prob: float = 0.0, training: bool = False):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
@@ -62,6 +93,16 @@ def drop_path(x, drop_prob: float = 0.0, training: bool = False):
     output = x.div(keep_prob) * random_tensor
     return output
 
+"""
+DropPath 클래스
+drop_prob: 드롭될 확률. __init__ 메소드에서 초기화.
+DropPath 클래스는 nn.Module을 상속받아 PyTorch 모듈로 구현됨. 
+이 클래스의 forward 메소드에서는 drop_path 함수를 호출하여 입력 텐서에 대해 드롭 패스를 적용. 
+이 클래스는 모델 정의 시에 드롭 패스를 쉽게 적용할 수 있도록 도와줌.
+
+드롭 패스 기법은 특히 레지듀얼 블록(Residual Blocks)이나 트랜스포머(Transformer) 모델 같이 깊은 네트워크 구조에서 유용하게 사용됨. 
+이를 통해 모델의 일부 경로를 무작위로 생략함으로써 과적합을 방지하고, 모델의 일반화 성능을 향상시킬 수 있음.
+"""
 
 class DropPath(nn.Module):
     """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks)."""
@@ -73,10 +114,32 @@ class DropPath(nn.Module):
     def forward(self, x):
         return drop_path(x, self.drop_prob, self.training)
 
+"""
+*PatchEmbed
+2D 이미지(또는 오디오 처리 컨텍스트에서의 스펙트로그램)를 일련의 평평한 패치로 변환하고, 각 패치를 더 높은 차원의 공간으로 임베딩하는 모듈. 
+이는 오디오 데이터를 트랜스포머 계층에서 처리할 수 있는 형태로 변환하는 첫 단계.
+"""
 
 class PatchEmbed(nn.Module):
     """2D Image to Patch Embedding"""
 
+    """
+    이 클래스는 변환된 패치 시퀀스를 다음 단계의 모델(예: Transformer)에 입력으로 제공하는 데 사용. 
+    패치 기반의 접근 방식은 이미지 또는 다른 2차원 데이터를 처리할 때 공간적 구조를 유지하면서도 효율적인 처리를 가능하게 함.
+    """
+
+    """
+    파라미터:
+    img_size: 입력 이미지의 크기. 튜플 형태로 (높이, 너비)를 지정할 수 있음.
+    patch_size: 각 패치의 크기. 튜플 형태로 (높이, 너비)를 지정할 수 있음.
+    in_chans: 입력 이미지의 채널 수.
+    embed_dim: 임베딩 차원의 크기. 각 패치가 변환될 벡터의 차원.
+    norm_layer: 임베딩에 적용할 정규화 계층. 기본값은 None으로, 정규화를 적용하지 않음.
+    flatten: 임베딩된 패치들을 일렬로 펼칠지 여부.
+    patch_stride: 패치 추출 시 스트라이드. 튜플 형태로 지정하며, 패치 간의 간격을 결정.
+    enable_fusion, fusion_type: 특정 융합 기법을 사용할지 여부와 그 유형을 지정.
+    """
+    
     def __init__(
         self,
         img_size=224,
@@ -89,6 +152,14 @@ class PatchEmbed(nn.Module):
         enable_fusion=False,
         fusion_type="None",
     ):
+        """
+        임베딩 과정:
+
+        입력 이미지로부터 정의된 patch_size와 patch_stride에 따라 패치들을 추출.
+        추출된 각 패치를 embed_dim 차원의 벡터로 변환하기 위해 nn.Conv2d 컨볼루션 연산을 사용. 이 과정에서 패치의 위치 정보는 잃어버리게 됨.
+        선택적으로, norm_layer가 지정되어 있다면, 임베딩된 패치들에 정규화를 적용.
+        enable_fusion과 fusion_type에 따라 추가적인 처리 가능. 예를 들어, fusion_type이 "channel_map"이라면, 입력 채널 수에 따라 다른 처리를 적용할 수 있음.       
+        """
         super().__init__()
         img_size = to_2tuple(img_size)
         patch_size = to_2tuple(patch_size)
@@ -148,6 +219,15 @@ class PatchEmbed(nn.Module):
             elif self.fusion_type == "iaff_2d":
                 self.fusion_model = iAFF(channels=embed_dim, type="2D")
 
+    """
+    forward 메서드:
+
+    입력 이미지 x를 받아, 위에서 설명한 패치 임베딩 과정을 수행.
+    enable_fusion이 활성화되어 있고, 지정된 fusion_type에 따라 추가적인 융합 처리를 할 수 있음. 
+    예를 들어, "daf_2d", "aff_2d", "iaff_2d"와 같은 융합 기법을 적용할 수 있음.
+    최종적으로, 변환된 패치 시퀀스를 반환.
+    """
+
     def forward(self, x, longer_idx=None):
         if (self.enable_fusion) and (
             self.fusion_type in ["daf_2d", "aff_2d", "iaff_2d"]
@@ -201,8 +281,19 @@ class PatchEmbed(nn.Module):
         return x
 
 
+
 class Mlp(nn.Module):
     """MLP as used in Vision Transformer, MLP-Mixer and related networks"""
+
+    """
+    __init__ 메서드는 MLP 모듈을 초기화. 
+    
+    in_features: 입력층의 노드(뉴런) 수.
+    hidden_features: 은닉층의 노드 수. 기본값은 in_features와 동일하게 설정.
+    out_features: 출력층의 노드 수. 기본값은 in_features와 동일하게 설정. 이는 기본적으로 입력 크기와 출력 크기를 같게 설정하지만, 필요에 따라 다르게 설정할 수 있음.
+    act_layer: 활성화 함수. 기본값은 GELU(Gaussian Error Linear Unit). GELU는 ReLU(Rectified Linear Unit)의 일반화된 형태로, 신경망에서 널리 사용되는 활성화 함수 중 하나.
+    drop: 드롭아웃 비율로, 과적합을 방지하기 위해 사용.
+    """
 
     def __init__(
         self,
@@ -220,6 +311,16 @@ class Mlp(nn.Module):
         self.fc2 = nn.Linear(hidden_features, out_features)
         self.drop = nn.Dropout(drop)
 
+    """
+    forward 메서드는 네트워크를 통해 입력 데이터 x가 순전파되는 과정을 정의.
+
+    self.fc1(x): 첫 번째 선형(전결합) 층을 통과.
+    self.act(x): 활성화 함수를 적용.
+    self.drop(x): 드롭아웃을 적용.
+    self.fc2(x): 두 번째 선형(전결합) 층을 통과.
+    마지막으로 다시 드롭아웃을 적용한 후 최종 출력을 반환.
+    """
+
     def forward(self, x):
         x = self.fc1(x)
         x = self.act(x)
@@ -228,20 +329,39 @@ class Mlp(nn.Module):
         x = self.drop(x)
         return x
 
+"""
+_no_grad_trunc_normal_ 함수는 주어진 범위 [a, b] 내에서 잘린(truncated) 정규 분포를 따르는 값을 갖는 텐서를 생성. 
+이 방식은 특정 범위 내에서만 값을 가질 때 유용하며, 초기 가중치 설정 등에서 사용. 
+PyTorch의 공식 구현에서 발췌한 이 함수는 특정 평균(mean)과 표준편차(std)를 가지는 정규 분포에서 값을 샘플링하되, [a, b] 범위 밖의 값은 제외하고 샘플링.
+"""
 
 def _no_grad_trunc_normal_(tensor, mean, std, a, b):
     # Cut & paste from PyTorch official master until it's in a few official releases - RW
     # Method based on https://people.sc.fsu.edu/~jburkardt/presentations/truncated_normal.pdf
+    """
+    norm_cdf는 표준 정규 분포의 CDF를 계산하는 내부 함수. 
+    여기서 math.erf는 오차 함수(Error Function)로, 가우시안(Gaussian) 적분을 계산.
+    """
     def norm_cdf(x):
         # Computes standard normal cumulative distribution function
         return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
 
-    if (mean < a - 2 * std) or (mean > b + 2 * std):
+    #만약 평균이 주어진 범위 [a, b]로부터 너무 멀리 떨어져 있다면(평균 ± 2표준편차가 [a, b] 범위를 벗어난 경우), 값의 분포가 올바르지 않을 수 있다는 경고를 발생
+    if (mean < a - 2 * std) or (mean > b + 2 * std): 
         warnings.warn(
             "mean is more than 2 std from [a, b] in nn.init.trunc_normal_. "
             "The distribution of values may be incorrect.",
             stacklevel=2,
         )
+
+    """
+    잘린(truncated) 정규 분포 샘플링:
+
+    먼저, 범위 [a, b] 내에서 잘린 정규 분포의 상한(u)과 하한(l)을 CDF를 사용하여 계산.
+    텐서를 [l, u] 범위의 균일 분포에서 샘플링하여 채운 후, 이를 [2l-1, 2u-1] 범위로 변환.
+    그 다음, 표준 정규 분포의 역 CDF 변환을 사용하여 값들을 잘린 정규 분포로 변환. 이는 tensor.erfinv_()를 통해 수행됨.
+    마지막으로, 샘플링된 값들을 지정된 평균과 표준편차로 변환하고, [a, b] 범위로 제한(clamp)하여 최종적으로 조정.
+    """
 
     with torch.no_grad():
         # Values are generated by using a truncated uniform distribution and
@@ -266,6 +386,11 @@ def _no_grad_trunc_normal_(tensor, mean, std, a, b):
         tensor.clamp_(min=a, max=b)
         return tensor
 
+"""
+trunc_normal_ 함수는 입력된 텐서를 지정된 평균(mean)과 표준편차(std)를 가진 잘린(truncated) 정규 분포로부터의 값으로 채움. 
+이 함수는 값이 [a, b] 범위 밖에 있을 경우 다시 그리기를 반복하여, 모든 값이 이 범위 내에 있도록 함. 
+이 함수는 특히 모델 가중치의 초기화에 유용하게 사용됨
+"""
 
 def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
     # type: (Tensor, float, float, float, float) -> Tensor
@@ -287,9 +412,24 @@ def trunc_normal_(tensor, mean=0.0, std=1.0, a=-2.0, b=2.0):
     """
     return _no_grad_trunc_normal_(tensor, mean, std, a, b)
 
+"""
+variance_scaling_:
+주어진 텐서에 분산 스케일링 초기화를 적용하는 함수. 
+이 초기화 방식은 신경망의 가중치를 초기화할 때 널리 사용되며, 가중치 값들이 특정 분산을 가지도록 설정함으로써 학습 초기 단계에서 신경망의 안정성을 높이는 데 도움을 줌.
+
+tensor: 초기화를 적용할 텐서.
+scale: 분산 스케일링에 사용될 스케일 값. 기본값은 1.0.
+mode: 초기화에서 사용할 모드로, 'fan_in', 'fan_out', 또는 'fan_avg'가 될 수 있음.
+'fan_in'은 입력 단위의 수를 기준으로 분산을 조정.
+'fan_out'은 출력 단위의 수를 기준으로 분산을 조정.
+'fan_avg'는 입력과 출력 단위의 평균을 기준으로 분산을 조정.
+distribution: 가중치 분포 유형으로, 'truncated_normal', 'normal', 또는 'uniform'이 될 수 있음.
+"""
 
 def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="normal"):
     fan_in, fan_out = _calculate_fan_in_and_fan_out(tensor)
+    #팬 값 계산: _calculate_fan_in_and_fan_out 함수를 사용하여 입력(fan_in)과 출력(fan_out) 단위의 수를 계산
+    #분산 계산: 선택된 모드(fan_in, fan_out, fan_avg)에 따라 분모를 결정하고, 이를 사용해 분산을 계산합니다. 분산은 scale / denom으로 정의
     if mode == "fan_in":
         denom = fan_in
     elif mode == "fan_out":
@@ -298,6 +438,13 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="normal"):
         denom = (fan_in + fan_out) / 2
 
     variance = scale / denom
+
+    """
+    분포에 따른 초기화:
+    'truncated_normal': 잘린 정규 분포를 사용하여 텐서를 초기화. 이 때, 표준편차는 계산된 분산의 제곱근으로 조정되며, -2와 2 사이의 값으로 제한.
+    'normal': 일반 정규 분포를 사용하여 텐서를 초기화. 표준편차는 계산된 분산의 제곱근으로 설정.
+    'uniform': 균등 분포를 사용하여 텐서를 초기화. 경계는 계산된 분산의 제곱근에 3을 곱한 값으로 설정.
+    """
 
     if distribution == "truncated_normal":
         # constant is stddev of standard normal truncated to (-2, 2)
@@ -310,12 +457,38 @@ def variance_scaling_(tensor, scale=1.0, mode="fan_in", distribution="normal"):
     else:
         raise ValueError(f"invalid distribution {distribution}")
 
+"""
+lecun_normal_:
+이 함수는 텐서(tensor)에 LeCun 정규 분포 초기화를 적용하는 함수. 이 초기화 방법은 Yann LeCun이 제안한 것으로, 신경망의 가중치를 초기화할 때 사용. 
+특히, 이 함수는 신경망이 학습을 시작할 때 가중치를 적절한 범위 내에서 초기화하여 학습 과정의 효율성을 높이는 데 도움을 줌
+"""
 
 def lecun_normal_(tensor):
+    """
+    mode="fan_in": 가중치 텐서의 fan_in 값을 사용. fan_in은 가중치 텐서가 연결된 이전 계층의 뉴런(입력 단위) 수를 의미. 
+    LeCun 초기화에서는 이전 계층의 뉴런 수에 기반하여 가중치의 분산을 조정하므로, fan_in 모드가 사용됨.
+
+    distribution="truncated_normal": 초기화에 사용되는 값들이 잘린(truncated) 정규 분포에서 추출. 
+    이는 가중치 값이 너무 크거나 작은 극단적인 값들을 제외하고, 일정 범위 내의 값들만을 사용하여 초기화한다는 의미. 
+    이렇게 함으로써 초기 가중치 값들이 너무 극단적으로 치우치는 것을 방지하고, 신경망의 학습 안정성과 수렴 속도를 향상시킬 수 있음.
+    """
     variance_scaling_(tensor, mode="fan_in", distribution="truncated_normal")
 
+"""
+window_partition 함수와 window_reverse 함수는 이미지나 텐서를 작은 윈도우(창)로 분할하고, 이러한 분할된 윈도우들을 다시 원래의 형태로 복구하는 과정을 담당. 
+이러한 기능은 특히 비전 변환기(Vision Transformers)나 스윈 변환기(Swin Transformers)와 같은 모델에서 지역적 특성을 처리할 때 사용됨.
+"""
 
 def window_partition(x, window_size):
+    """
+    window_partition 함수
+    목적: 입력된 텐서 x를 window_size에 따라 작은 윈도우로 분할.
+    입력:
+    x: (B, H, W, C) 형태의 텐서, 여기서 B는 배치 크기, H와 W는 각각 높이와 너비, C는 채널 수를 의미.
+    window_size: 윈도우의 크기(높이와 너비가 같다고 가정).
+    출력: 분할된 윈도우들이 담긴 텐서 (num_windows*B, window_size, window_size, C).
+    """
+
     """
     Args:
         x: (B, H, W, C)
@@ -324,14 +497,26 @@ def window_partition(x, window_size):
         windows: (num_windows*B, window_size, window_size, C)
     """
     B, H, W, C = x.shape
+    #입력 텐서를 view를 사용해 (B, H // window_size, window_size, W // window_size, window_size, C)로 재구성. 이는 각 차원을 윈도우 크기에 맞게 분할
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
     windows = (
+        #permute를 사용해 텐서의 차원을 재배치하여 윈도우를 연속적으로 배열
         x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
     )
     return windows
 
 
 def window_reverse(windows, window_size, H, W):
+    """
+    window_reverse 함수
+    목적: window_partition에 의해 분할된 윈도우들을 다시 원래의 크기 (B, H, W, C)로 복구.
+    입력:
+    windows: 분할된 윈도우들이 담긴 텐서.
+    window_size: 원래 윈도우의 크기.
+    H, W: 복구할 이미지의 높이와 너비.
+    출력: 복구된 텐서 (B, H, W, C).
+    """
+
     """
     Args:
         windows: (num_windows*B, window_size, window_size, C)
@@ -341,13 +526,22 @@ def window_reverse(windows, window_size, H, W):
     Returns:
         x: (B, H, W, C)
     """
+    # 윈도우들이 포함된 텐서 windows의 크기를 계산하여 배치 크기 B를 결정
     B = int(windows.shape[0] / (H * W / window_size / window_size))
+    # view를 사용해 텐서를 원래 이미지의 구조에 맞게 재구성. 이 과정에서 윈도우들은 원래의 위치로 배치
     x = windows.view(
         B, H // window_size, W // window_size, window_size, window_size, -1
     )
+    # permute와 view를 사용해 최종적으로 (B, H, W, C) 형태의 텐서로 복구
     x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
     return x
 
+
+"""
+*WindowAttention: 
+로컬 윈도우 내에서 자기 주의를 계산하는 모듈로, 모델이 입력의 다른 부분에 선택적으로 집중할 수 있게 함. 
+상대 위치 편향의 사용은 모델이 각 윈도우 내의 패치 배열을 이해하는 데 도움을 줌.
+"""
 
 class WindowAttention(nn.Module):
     r"""Window based multi-head self attention (W-MSA) module with relative position bias.
@@ -362,6 +556,17 @@ class WindowAttention(nn.Module):
         proj_drop (float, optional): Dropout ratio of output. Default: 0.0
     """
 
+    """
+    초기화 매개변수:
+    dim: 입력 채널의 수.
+    window_size: 윈도우의 높이와 너비를 나타내는 튜플.
+    num_heads: 어텐션 헤드의 수.
+    qkv_bias: 쿼리(Query), 키(Key), 값(Value) 계산에 학습 가능한 바이어스를 추가할지 여부를 결정. 기본값은 True.
+    qk_scale: 헤드 차원의 역수 제곱근을 기본값으로 사용하는 쿼리와 키의 스케일 팩터. 명시적으로 설정할 수도 있음.
+    attn_drop: 어텐션 가중치에 적용되는 드롭아웃 비율.
+    proj_drop: 출력에 적용되는 드롭아웃 비율.
+    """
+
     def __init__(
         self,
         dim,
@@ -372,6 +577,7 @@ class WindowAttention(nn.Module):
         attn_drop=0.0,
         proj_drop=0.0,
     ):
+        
         super().__init__()
         self.dim = dim
         self.window_size = window_size  # Wh, Ww
@@ -380,7 +586,8 @@ class WindowAttention(nn.Module):
         self.scale = qk_scale or head_dim**-0.5
 
         # define a parameter table of relative position bias
-        self.relative_position_bias_table = nn.Parameter(
+        # relative_position_bias_table: 상대 위치에 대한 바이어스를 저장하는 테이블. 이 바이어스는 윈도우 내의 각 토큰 쌍 사이의 상대적 위치에 따라 다름.
+        self.relative_position_bias_table = nn.Parameter( 
             torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads)
         )  # 2*Wh-1 * 2*Ww-1, nH
 
@@ -407,7 +614,16 @@ class WindowAttention(nn.Module):
         self.proj_drop = nn.Dropout(proj_drop)
 
         trunc_normal_(self.relative_position_bias_table, std=0.02)
-        self.softmax = nn.Softmax(dim=-1)
+        self.softmax = nn.Softmax(dim=-1)# softmax: 어텐션 가중치를 계산하기 위한 소프트맥스 함수
+
+    """
+    forward 메소드:
+    입력 특성 x와 선택적 마스크 mask를 받아들임.
+    x를 사용하여 쿼리, 키, 값 벡터를 생성하고, 스케일링된 닷-프로덕트 어텐션을 계산.
+    상대 위치 바이어스를 어텐션 스코어에 추가하고, 선택적으로 마스크를 적용.
+    어텐션 가중치를 적용한 후, 결과를 선형 변환하고 최종 출력을 반환.
+    이 모듈은 특히 이미지 또는 다른 2차원 데이터를 처리할 때 유용하며, 윈도우 내의 요소들 사이의 상호 작용을 모델링하여 성능을 향상시키는 데 도움을 줌.
+    """
 
     def forward(self, x, mask=None):
         """
@@ -417,7 +633,7 @@ class WindowAttention(nn.Module):
         """
         B_, N, C = x.shape
         qkv = (
-            self.qkv(x)
+            self.qkv(x) # qkv: 입력 특성으로부터 쿼리, 키, 값 벡터를 생성하는 선형 변환.
             .reshape(B_, N, 3, self.num_heads, C // self.num_heads)
             .permute(2, 0, 3, 1, 4)
         )
@@ -429,7 +645,6 @@ class WindowAttention(nn.Module):
 
         q = q * self.scale
         attn = q @ k.transpose(-2, -1)
-
         relative_position_bias = self.relative_position_bias_table[
             self.relative_position_index.view(-1)
         ].view(
@@ -448,7 +663,7 @@ class WindowAttention(nn.Module):
                 1
             ).unsqueeze(0)
             attn = attn.view(-1, self.num_heads, N, N)
-            attn = self.softmax(attn)
+            attn = self.softmax(attn) 
         else:
             attn = self.softmax(attn)
 
@@ -464,6 +679,11 @@ class WindowAttention(nn.Module):
 
 
 # We use the model based on Swintransformer Block, therefore we can use the swin-transformer pretrained model
+"""
+*SwinTransformerBlock
+Swin Transformer의 기본 빌딩 블록으로, 상대 위치 편향이 포함된 자기 주의 메커니즘과 MLP(다층 퍼셉트론)를 포함. 
+이동된 윈도우를 지원하여 모델이 전역 컨텍스트를 더 잘 포착할 수 있음.
+"""
 class SwinTransformerBlock(nn.Module):
     r"""Swin Transformer Block.
     Args:
@@ -635,6 +855,11 @@ class SwinTransformerBlock(nn.Module):
             f"window_size={self.window_size}, shift_size={self.shift_size}, mlp_ratio={self.mlp_ratio}"
         )
 
+"""
+*PatchMerging: 
+인접한 패치를 병합하여 특징 맵의 공간 해상도를 줄이는 계층으로, 채널 차원을 실질적으로 두 배로 늘림. 
+이 연산은 CNN에서의 다운샘플링과 유사하며, 계층적 표현을 구축하는 데 도움을 줌.
+"""
 
 class PatchMerging(nn.Module):
     r"""Patch Merging Layer.
@@ -677,6 +902,11 @@ class PatchMerging(nn.Module):
     def extra_repr(self):
         return f"input_resolution={self.input_resolution}, dim={self.dim}"
 
+"""
+*BasicLayer: 
+모델의 계층적 구조에서 특정 해상도에서 입력을 처리하는 한 단계를 나타냄. 
+이는 여러 Swin Transformer 블록을 포함하며, 마지막에는 다운샘플링 계층이 있을 수 있음.
+"""
 
 class BasicLayer(nn.Module):
     """A basic Swin Transformer layer for one stage.

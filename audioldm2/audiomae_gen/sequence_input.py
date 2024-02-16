@@ -8,6 +8,7 @@ from audioldm2.latent_diffusion.util import (
 from transformers import GPT2Config, GPT2Model
 import torch.optim.lr_scheduler as lr_scheduler
 
+# Sequence2AudioMAE 클래스를 정의. 이 클래스는 PyTorch의 nn.Module을 상속받아 생성.
 class Sequence2AudioMAE(nn.Module):
     def __init__(
         self,
@@ -24,14 +25,14 @@ class Sequence2AudioMAE(nn.Module):
         random_mask_ratio=False,
         **kwargs
     ):
-        super().__init__()
-        assert use_audiomae_linear == False
-        self.random_mask_ratio = random_mask_ratio
-        self.learning_rate = base_learning_rate
+        super().__init__()  # 부모 클래스인 nn.Module의 생성자를 호출
+        assert use_audiomae_linear == False # use_audiomae_linear 플래그가 False인 것을 확인. 현재 선형 오디오 MAE는 사용되지 않는다는 가정.
+        self.random_mask_ratio = random_mask_ratio # 학습률을 설정
+        self.learning_rate = base_learning_rate # 조건 단계의 설정을 저장
         self.cond_stage_config = cond_stage_config
         self.use_audiomae_linear = use_audiomae_linear
-        self.optimizer_type = optimizer_type
-        self.use_warmup = use_warmup
+        self.optimizer_type = optimizer_type  # 옵티마이저의 유형을 설정
+        self.use_warmup = use_warmup # 학습률 예열 사용 여부를 설정
         self.use_ar_gen_loss = use_ar_gen_loss
         # Even though the LDM can be conditioned on mutliple pooling rate
         # Our model always predict the higest pooling rate
@@ -40,20 +41,24 @@ class Sequence2AudioMAE(nn.Module):
         # self.freq_pool = max(self.cond_stage_config["crossattn_audiomae_pooled"]["params"]["freq_pooling_factors"])
         # self.mae_token_num = int(512/(self.time_pool*self.freq_pool))
 
-        self.mae_token_num = sequence_gen_length
-        self.sequence_input_key = sequence_input_key
-        self.sequence_input_embed_dim = sequence_input_embed_dim
-        self.target_tokens_mask_ratio = target_tokens_mask_ratio
+        self.mae_token_num = sequence_gen_length # 생성할 시퀀스의 길이를 설정
+        self.sequence_input_key = sequence_input_key # 입력 시퀀스의 키를 설정
+        self.sequence_input_embed_dim = sequence_input_embed_dim  # 입력 임베딩 차원을 설정
+        self.target_tokens_mask_ratio = target_tokens_mask_ratio # 타겟 토큰 마스킹 비율을 설정
 
+        # SOS(Start of Sequence)와 EOS(End of Sequence) 토큰을 위한 임베딩 레이어를 생성
         self.start_of_sequence_tokens = nn.Embedding(32, 768)
         self.end_of_sequence_tokens = nn.Embedding(32, 768)
 
+        # 입력 시퀀스 임베딩을 위한 선형 레이어를 포함하는 모듈 리스트를 생성
         self.input_sequence_embed_linear = nn.ModuleList([])
         self.initial_learning_rate = None
 
+        # 입력 임베딩 차원에 따라 선형 레이어를 추가.
         for dim in self.sequence_input_embed_dim:
             self.input_sequence_embed_linear.append(nn.Linear(dim, 768))
 
+        # 조건 단계 모델을 위한 모듈 리스트를 생성하고, 이를 초기화
         self.cond_stage_models = nn.ModuleList([])
         self.instantiate_cond_stage(cond_stage_config)
         self.initialize_param_check_toolkit()
@@ -65,23 +70,40 @@ class Sequence2AudioMAE(nn.Module):
         # with torch.no_grad():
         #     self.model.weight.copy_(torch.eye(768))
         ###################
+
+        # GPT-2 모델을 구성하고 인스턴스화. 여기서는 사전 훈련된 "gpt2" 모델을 사용
         self.model = GPT2Model(GPT2Config.from_pretrained("gpt2"))
         ###################
         # self.model = nn.LSTM(input_size=768, hidden_size=768, num_layers=1,bias=False) # TODO
 
         # self.loss_fn = nn.MSELoss()
+
+        # 손실 함수를 L1 손실로 설정.
         self.loss_fn = nn.L1Loss()
 
+        # 로거 관련 설정을 초기화
         self.logger_save_dir = None
         self.logger_exp_name = None
         self.logger_exp_group_name = None
         self.logger_version = None
 
+    """set_log_dir 메소드
+    로깅을 위한 디렉토리 설정을 담당.
+    save_dir: 로그 파일을 저장할 경로.
+    exp_group_name: 실험 그룹의 이름을 지정. 여러 실험을 그룹화할 때 사용.
+    exp_name: 개별 실험의 이름을 지정.
+    """
     def set_log_dir(self, save_dir, exp_group_name, exp_name):
         self.logger_save_dir = save_dir
         self.logger_exp_group_name = exp_group_name
         self.logger_exp_name = exp_name
 
+    """cfg_uncond 메소드
+    무조건적(unconditional) 조건 설정을 생성.
+    각 조건 스테이지 모델의 무조건적 조건을 수집하여 unconditional_conditioning 딕셔너리에 저장.
+    batch_size: 생성할 조건의 배치 크기.
+    이 메소드는 "crossattn_audiomae_pooled"을 포함하는지 확인하며, 이는 오디오MAE의 특징을 CLAP을 통해 오디오MAE 특징으로 변환하는 데 사용.
+    """
     def cfg_uncond(self, batch_size):
         unconditional_conditioning = {}
         for key in self.cond_stage_model_metadata:
@@ -96,6 +118,15 @@ class Sequence2AudioMAE(nn.Module):
             "crossattn_clap_to_audiomae_feature"
         ] = unconditional_conditioning["crossattn_audiomae_pooled"]
         return unconditional_conditioning
+    
+    """
+    configure_optimizers 메소드
+    모델의 옵티마이저와 스케줄러를 설정.
+    lr: 학습률을 설정.
+    params: 모델의 파라미터들.
+    opt: 옵티마이저를 설정. optimizer_type에 따라 동적으로 옵티마이저 타입이 결정.
+    scheduler: 학습률 스케줄러를 설정. 여기서는 StepLR을 사용하여 특정 스텝마다 학습률을 감소.
+    """
 
     def configure_optimizers(self):
         lr = float(self.learning_rate)
@@ -106,6 +137,15 @@ class Sequence2AudioMAE(nn.Module):
         opt = eval(self.optimizer_type)(params, lr=lr)
         scheduler = lr_scheduler.StepLR(opt, step_size=10, gamma=0.8)
         return [opt], [scheduler]
+    
+    """
+    add_sos_eos_tokens 메소드
+    입력 시퀀스에 시작(SOS) 토큰과 종료(EOS) 토큰을 추가.
+    _id: 시퀀스 키의 ID.
+    sequence: 원본 입력 시퀀스.
+    attn_mask: 입력 시퀀스에 대한 어텐션 마스크.
+    이 메소드는 각 시퀀스의 시작과 끝에 특별한 토큰을 추가하여 시퀀스를 변형.
+    """
 
     def add_sos_eos_tokens(self, _id, sequence, attn_mask):
         batchsize = sequence.size(0)
@@ -123,6 +163,17 @@ class Sequence2AudioMAE(nn.Module):
         eos_token = self.end_of_sequence_tokens(key_id).expand(batchsize, 1, -1)
         new_sequence = torch.cat([sos_token, sequence, eos_token], dim=1)
         return new_sequence, new_attn_mask
+    
+    """
+    truncate_sequence_and_mask 메소드
+    입력 시퀀스와 마스크를 최대 길이로 자름.
+    sequence, mask: 입력 시퀀스와 어텐션 마스크.
+    max_len: 시퀀스의 최대 길이. 이보다 긴 시퀀스는 잘림.
+    get_input_sequence_and_mask 메소드
+    조건 딕셔너리로부터 입력 시퀀스와 어텐션 마스크를 생성.
+    cond_dict: 조건 딕셔너리. 각 조건은 시퀀스 키에 매핑.
+    이 메소드는 각 시퀀스 키에 대한 입력 임베딩과 어텐션 마스크를 생성, 필요한 경우 SOS/EOS 토큰을 추가.
+    """
 
     def truncate_sequence_and_mask(self, sequence, mask, max_len=512):
         if sequence.size(1) > max_len:
@@ -133,6 +184,13 @@ class Sequence2AudioMAE(nn.Module):
             return sequence[:, :max_len], mask[:, :max_len]
         else:
             return sequence, mask
+        
+    """
+    get_input_sequence_and_mask 메소드
+    조건 딕셔너리로부터 입력 시퀀스와 어텐션 마스크를 생성.
+    cond_dict: 조건 딕셔너리. 각 조건은 시퀀스 키에 매핑.
+    이 메소드는 각 시퀀스 키에 대한 입력 임베딩과 어텐션 마스크를 생성하고, 필요한 경우 SOS/EOS 토큰을 추가.
+    """
 
     def get_input_sequence_and_mask(self, cond_dict):
         input_embeds = None
@@ -199,6 +257,12 @@ class Sequence2AudioMAE(nn.Module):
         )  # The index that we start to collect the output embeds
 
         return input_embeds, input_embeds_attn_mask, cond_sequence_end_time_idx
+    
+    """
+    warmup_step 메소드
+    학습 초기에 학습률을 점진적으로 증가시키는 웜업(warmup) 단계를 구현.
+    global_step을 사용하여 현재 스텝에 따라 학습률을 조절.
+    """
 
     def warmup_step(self):
         if self.initial_learning_rate is None:
@@ -220,6 +284,13 @@ class Sequence2AudioMAE(nn.Module):
                 "lr"
             ] = self.initial_learning_rate
 
+    """
+    mask_target_sequence 메소드
+    타겟 시퀀스에 마스크를 적용.
+    target_tokens_mask_ratio에 따라 시퀀스의 일부 토큰을 마스킹.
+    마스킹은 훈련 과정에서 모델이 데이터의 다양한 부분에 초점을 맞추도록 도움.
+    """
+
     def mask_target_sequence(self, target_embeds, target_embeds_attn_mask):
         time_seq_mask = None
         if self.target_tokens_mask_ratio > 1e-4:
@@ -238,6 +309,12 @@ class Sequence2AudioMAE(nn.Module):
             target_embeds = target_embeds * time_seq_mask.unsqueeze(-1)
             target_embeds_attn_mask = target_embeds_attn_mask * time_seq_mask
         return target_embeds, target_embeds_attn_mask, time_seq_mask
+    
+    """
+    generate_partial 및 generate 메소드
+    주어진 조건에 따라 부분적 또는 전체 오디오 시퀀스를 생성.
+    cond_dict에서 조건을 가져와 GPT-2 모델 등을 사용하여 시퀀스를 생성
+    """
 
     def generate_partial(self, batch, cond_dict=None, no_grad=False):
         if cond_dict is None:
@@ -323,6 +400,12 @@ class Sequence2AudioMAE(nn.Module):
             )
 
         return model_input[:, cond_sequence_end_time_idx:], cond_dict
+    
+    """
+    get_input_item 및 get_input 메소드
+    배치에서 필요한 입력 항목을 추출.
+    get_input_item은 개별 항목을, get_input은 전체 조건 딕셔너리를 생성.
+    """
 
     def get_input_item(self, batch, k):
         fname, text, waveform, stft, fbank = (
@@ -374,6 +457,10 @@ class Sequence2AudioMAE(nn.Module):
                 cond_dict[cond_model_key] = c
 
         return cond_dict
+    
+    """instantiate_cond_stage 메소드
+    조건 스테이지 모델들을 인스턴스화.
+    config에서 제공된 설정에 따라 모델을 생성하고 초기화."""
 
     def instantiate_cond_stage(self, config):
         self.cond_stage_model_metadata = {}
@@ -386,6 +473,12 @@ class Sequence2AudioMAE(nn.Module):
                 "cond_stage_key": config[cond_model_key]["cond_stage_key"],
                 "conditioning_key": config[cond_model_key]["conditioning_key"],
             }
+
+    """
+    get_learned_conditioning 메소드
+    학습된 조건을 생성.
+    주어진 입력에 대해 조건 스테이지 모델을 사용하여 조건을 생성.
+    """
 
     def get_learned_conditioning(self, c, key, unconditional_cfg):
         assert key in self.cond_stage_model_metadata.keys()
@@ -407,6 +500,12 @@ class Sequence2AudioMAE(nn.Module):
             ].get_unconditional_condition(batchsize)
 
         return c
+    
+    """
+    initialize_param_check_toolkit 및 statistic_require_grad_tensor_number 메소드
+    모델 파라미터와 학습 가능한 텐서의 수를 추적 및 출력.
+    모델의 파라미터 상태를 모니터링하는 데 사용.
+    """
 
     def initialize_param_check_toolkit(self):
         self.tracked_steps = 0
