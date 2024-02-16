@@ -1002,6 +1002,12 @@ class BasicLayer(nn.Module):
     def extra_repr(self):
         return f"dim={self.dim}, input_resolution={self.input_resolution}, depth={self.depth}"
 
+"""
+HTSAT_Swin_Transformer
+계층적 토큰-시맨틱 오디오 변환기(Hierarchical Token-Semantic Audio Transformer)를 기반으로 하는 모델로, 
+Swin Transformer 구조를 사용하여 오디오 스펙트로그램에서 특징을 추출하고 처리하는 심층 신경망. 
+이 모델은 오디오 분류, 사운드 이벤트 탐지, 오디오 기반 검색 등 다양한 오디오 관련 작업에 사용.
+"""
 
 # The Core of HTSAT
 class HTSAT_Swin_Transformer(nn.Module):
@@ -1476,6 +1482,12 @@ class HTSAT_Swin_Transformer(nn.Module):
 
         return output_dict
 
+"""
+create_htsat_model 
+오디오 구성 정보를 기반으로 HTSAT (Hierarchical Token-Semantic Audio Transformer) 모델을 생성하는 기능을 제공. 
+사용자는 오디오 구성(audio_cfg)을 통해 모델의 세부 사항을 지정할 수 있으며, 
+enable_fusion과 fusion_type 매개변수를 통해 다양한 오디오 데이터의 길이를 처리하기 위한 융합 메커니즘을 활성화할 수 있음.
+"""
 
 def create_htsat_model(audio_cfg, enable_fusion=False, fusion_type="None"):
     try:

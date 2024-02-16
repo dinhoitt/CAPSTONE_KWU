@@ -20,6 +20,10 @@ from .pann_model import create_pann_model
 from .htsat import create_htsat_model
 from transformers import BertModel, RobertaModel, BartModel, RobertaConfig
 
+"""
+MLPLayers: 
+MLP(다층 퍼셉트론) 레이어를 정의합니다. 입력 단위와 활성화 함수, 드롭아웃 비율을 설정.
+"""
 
 class MLPLayers(nn.Module):
     def __init__(self, units=[512, 512, 512], nonlin=nn.ReLU(), dropout=0.1):
@@ -40,6 +44,10 @@ class MLPLayers(nn.Module):
         X = self.sequential(X)
         return X
 
+"""
+Bottleneck:
+ResNet 구조에서 사용되는 병목(bottleneck) 레이어를 정의. 이는 특성 맵의 차원을 변환하고 정보를 압축하는 역할.
+"""
 
 class Bottleneck(nn.Module):
     expansion = 4
@@ -99,6 +107,10 @@ class Bottleneck(nn.Module):
         out = self.relu(out)
         return out
 
+"""
+AttentionPool2d: 
+2D 어텐션 풀링 레이어를 정의. 공간적 차원에 대한 정보를 집약하여 특성을 요약.
+"""
 
 class AttentionPool2d(nn.Module):
     def __init__(
@@ -146,6 +158,10 @@ class AttentionPool2d(nn.Module):
 
         return x[0]
 
+"""
+ModifiedResNet: 
+수정된 ResNet 구조를 정의. 기존 ResNet과 달리 3개의 "stem" 합성곱과 QKV 어텐션을 기반으로 최종 풀링 레이어를 구성.
+"""
 
 class ModifiedResNet(nn.Module):
     """
@@ -278,6 +294,10 @@ class ResidualAttentionBlock(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
+"""
+Transformer & ResidualAttentionBlock: 
+트랜스포머 구조를 정의. 멀티헤드 어텐션과 MLP 블록을 포함하는 잔차 어텐션 블록으로 구성
+"""
 
 class Transformer(nn.Module):
     def __init__(
@@ -298,6 +318,10 @@ class Transformer(nn.Module):
             x = r(x, attn_mask=attn_mask)
         return x
 
+"""
+VisualTransformer: 
+이미지 특성을 처리하기 위한 비주얼 트랜스포머 구조를 정의. 이미지를 패치로 나누고, 이를 통해 특성을 추출하여 처리
+"""
 
 class VisualTransformer(nn.Module):
     def __init__(
@@ -415,6 +439,12 @@ class CLAPTextCfg:
     layers: int
     model_type: str
 
+"""
+CLAP 클래스: 
+오디오와 텍스트 특성을 처리하고, 이를 통해 오디오-텍스트 매칭을 학습하는 메인 모델 클래스. 
+오디오 분기와 텍스트 분기로 구성되며, 이를 통해 각각의 특성을 추출하고, 최종적으로 정규화된 특성 벡터를 생성. 
+이 모델은 오디오와 텍스트 간의 상호 정보를 최대화하는 방식으로 학습
+"""
 
 class CLAP(nn.Module):
     def __init__(
@@ -465,7 +495,7 @@ class CLAP(nn.Module):
             )
         else:
             logging.error(f"Model config for {audio_cfg.model_type} not found")
-            raise RuntimeError(f"Model config for {audio_cfg.model_type} not found.")
+            raise RuntimeError(f"Model config for {audio_cfg.model_type} not found.")   
 
         # text branch
         # text branch parameters

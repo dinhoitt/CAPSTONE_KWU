@@ -29,6 +29,12 @@ def init_bn(bn):
     bn.bias.data.fill_(0.0)
     bn.weight.data.fill_(1.0)
 
+"""
+ConvBlock
+ConvBlock 클래스는 오디오 신호의 특징을 추출하기 위한 기본적인 합성곱 블록을 구현. 
+이 클래스는 두 개의 합성곱 층과 두 개의 배치 정규화 층으로 구성되어 있으며, 각 합성곱 층 뒤에는 ReLU 활성화 함수가 적용됨. 
+선택적으로, 폴링 층(pooling layer)을 통해 특징 맵의 크기를 줄일 수 있음. 이 구조는 오디오 데이터에서 중요한 특징을 추출하는 데 사용.
+"""
 
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -80,6 +86,11 @@ class ConvBlock(nn.Module):
 
         return x
 
+"""
+ConvBlock5x5
+ConvBlock5x5 클래스는 5x5 크기의 커널을 사용하는 합성곱 블록으로, ConvBlock과 유사하지만 더 큰 커널을 사용하여 오디오 신호에서 더 넓은 영역의 특징을 추출할 수 있음. 
+이 클래스는 한 개의 합성곱 층과 배치 정규화 층으로 구성되어 있으며, 선택적으로 폴링 층을 통해 특징 맵의 크기를 줄일 수 있음.
+"""
 
 class ConvBlock5x5(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -118,6 +129,11 @@ class ConvBlock5x5(nn.Module):
 
         return x
 
+"""
+AttBlock (Attention Block)
+AttBlock 클래스는 주의(Attention) 메커니즘을 사용하여 오디오 신호에서 중요한 부분을 강조. 
+이 클래스는 입력 특징에 대한 가중치를 학습하여, 특정 클래스에 대한 중요도를 계산합니다. 이를 통해 모델이 오디오 신호의 중요한 부분에 더 집중하도록 함.
+"""
 
 class AttBlock(nn.Module):
     def __init__(self, n_in, n_out, activation="linear", temperature=1.0):
@@ -163,6 +179,12 @@ class AttBlock(nn.Module):
         elif self.activation == "sigmoid":
             return torch.sigmoid(x)
 
+"""
+Cnn14, Cnn6, Cnn10
+이들 클래스는 다양한 깊이와 구조를 가진 합성곱 신경망 모델을 구현. 
+각 모델은 특정한 오디오 처리 및 분류 작업에 적합하도록 설계되었으며, 다양한 ConvBlock과 ConvBlock5x5, 그리고 AttBlock을 조합하여 구성. 
+모델은 최종적으로 전역 평균 풀링(global average pooling)을 수행하고, 하나 또는 여러 개의 완전 연결 층을 통해 최종 분류 결정을 내림.
+"""
 
 class Cnn14(nn.Module):
     def __init__(
@@ -675,6 +697,11 @@ class Cnn10(nn.Module):
 
         return output_dict
 
+"""
+create_pann_model 함수
+create_pann_model 함수는 주어진 설정에 따라 PANN 모델을 초기화하고 생성. 
+이 함수는 audio_cfg 설정을 기반으로 특정 모델(Cnn14, Cnn6, Cnn10 등)을 선택하고, 필요한 파라미터(샘플링 레이트, 윈도우 크기, 호프 사이즈, 멜 빈의 수 등)를 사용하여 모델을 초기화.
+"""
 
 def create_pann_model(audio_cfg, enable_fusion=False, fusion_type="None"):
     try:

@@ -10,6 +10,13 @@ try:
 except ImportError:
     hvd = None
 
+"""
+gater_features
+이 함수는 분산 학습 환경에서 오디오 특징(audio features)과 텍스트 특징(text features)을 수집하고, 필요에 따라 멀티 레이어 퍼셉트론(MLP)을 통과한 특징을 처리.
+Horovod와 PyTorch Distributed를 사용하여 다중 GPU 또는 노드에서 학습 데이터를 수집. 이는 모델이 전체 데이터셋에서 학습할 수 있게 하여, 모델의 일반화 성능을 향상시키는 데 도움이 됨.
+local_loss 매개변수는 로컬 노드에서만 손실을 계산할지, 전체 데이터셋에 대해 손실을 계산할지를 결정.
+gather_with_grad 매개변수는 기울기 계산을 위해 데이터를 수집할지 여부를 결정.
+"""
 
 def gather_features(
     audio_features,
@@ -120,6 +127,14 @@ def gather_features(
     else:
         return all_audio_features, all_text_features
 
+"""
+ClipLoss
+이 클래스는 오디오와 텍스트(또는 다른 모달) 간의 관계를 학습하기 위한 손실 함수를 정의.
+클립 손실(Clip Loss)은 오디오 특징과 텍스트 특징 사이의 상호 정보를 최대화하기 위해 설계됨. 이를 통해 모델이 두 모달 사이의 의미적인 매칭을 학습할 수 있음.
+MLP 손실 옵션을 통해 추가적인 MLP 네트워크를 통과한 특징을 사용하여 손실을 계산할 수 있습니다. 이는 특징의 표현력을 더욱 향상시킬 수 있음.
+손실 계산 시, 로컬 또는 전체 데이터셋에 대한 선택적 계산이 가능.
+가중치 손실 옵션을 통해 손실 함수에 가중치를 적용하여 특정 샘플에 더 많은 중요도를 부여할 수 있음.
+"""
 
 class ClipLoss(nn.Module):
     def __init__(
@@ -314,6 +329,10 @@ class ClipLoss(nn.Module):
                 ) / 2
         return total_loss
 
+"""
+lp_gather_features
+라벨 분포 학습(Label Distribution Learning, LDL)에 사용되는 특성을 수집하는 함수
+"""
 
 def lp_gather_features(pred, target, world_size=1, use_horovod=False):
     if use_horovod:
@@ -332,6 +351,11 @@ def lp_gather_features(pred, target, world_size=1, use_horovod=False):
 
     return all_preds, all_targets
 
+"""
+get_map, get_acc, get_mauc
+모델 예측에 대한 평균 정밀도(Mean Average Precision, MAP), 정확도(Accuracy, ACC), 평균 AUC(Mean AUC, MAUC)를 계산.
+이 메트릭들은 모델의 성능을 다각도로 평가하기 위해 사용됨
+"""
 
 def get_map(pred, target):
     pred = torch.sigmoid(pred).numpy()
@@ -350,6 +374,11 @@ def get_mauc(pred, target):
     target = target.numpy()
     return np.mean(roc_auc_score(target, pred, average=None))
 
+"""
+LPMetrics
+여러 성능 평가 메트릭을 관리하고 계산하는 데 사용됨.
+사용자가 지정한 메트릭 목록에 따라 예측과 타겟 간의 성능을 평가하고 결과를 사전 형태로 반환.
+"""
 
 class LPMetrics(object):
     def __init__(self, metric_names=["map", "acc", "mauc"]):
@@ -379,6 +408,11 @@ def calc_celoss(pred, target):
     target = torch.argmax(target, 1).long()
     return nn.CrossEntropyLoss()(pred, target)
 
+"""
+LPLoss
+학습 시 사용할 손실 함수를 정의.
+이진 크로스 엔트로피(BCE), 크로스 엔트로피(CE), 평균 제곱 오차(MSE) 등 다양한 손실 함수를 지원.
+"""
 
 class LPLoss(nn.Module):
     def __init__(self, loss_name):

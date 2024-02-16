@@ -18,11 +18,22 @@ from .pretrained import (
 
 __all__ = ["list_openai_models", "load_openai_model"]
 
+"""
+list_openai_models()
+사용 가능한 OpenAI 모델의 이름 목록을 반환.
+list_pretrained_tag_models("openai") 함수를 호출하여 구현.
+"""
 
 def list_openai_models() -> List[str]:
     """Returns the names of available CLIP models"""
     return list_pretrained_tag_models("openai")
 
+
+"""
+load_openai_model(...)
+OpenAI에서 사전 훈련된 모델을 로드하고 CLAP 모델로 변환하는 핵심 함수.
+인수로 모델 이름, 모델 구성, 디바이스 타입, JIT 사용 여부, 캐시 디렉토리, 융합 활성화 여부, 융합 타입을 받음.
+"""
 
 def load_openai_model(
     name: str,

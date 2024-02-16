@@ -37,6 +37,13 @@ dataset_split = {
     "fsd50k_200_class_label": ["train", "test", "valid"],
 }
 
+"""
+freeze_batch_norm_2d() 함수:
+모듈 내의 모든 BatchNorm2d 및 SyncBatchNorm 레이어를 FrozenBatchNorm2d로 변환. 
+이는 배치 정규화 레이어의 매개변수를 고정하여 모델 학습 중에 업데이트되지 않게 함. 
+이는 특정 시나리오에서 모델의 일반화 성능을 향상시키는 데 도움이 될 수 있음.
+"""
+
 def freeze_batch_norm_2d(module, module_match={}, name=""):
     """
     Converts all `BatchNorm2d` and `SyncBatchNorm` layers of provided module into `FrozenBatchNorm2d`. If `module` is
@@ -77,6 +84,10 @@ def freeze_batch_norm_2d(module, module_match={}, name=""):
                 res.add_module(child_name, new_child)
     return res
 
+"""
+exist() 함수:
+지정된 데이터셋 이름과 유형이 존재하는지 확인. 이는 데이터 처리 과정에서 유효한 데이터셋과 분할을 확인하는 데 사용.
+"""
 
 def exist(dataset_name, dataset_type):
     """
@@ -87,6 +98,10 @@ def exist(dataset_name, dataset_type):
     else:
         return False
 
+"""
+get_tar_path_from_dataset_name() 및 get_tar_path_from_txts() 함수:
+데이터셋 이름, 유형, 위치 등을 기반으로 데이터 파일의 경로를 생성. 이는 웹 데이터셋이나 로컬 파일 시스템에서 학습 데이터를 효율적으로 로드하는 데 사용
+"""
 
 def get_tar_path_from_dataset_name(
     dataset_names, dataset_types, islocal, dataset_path, proportion=1, full_dataset=None
@@ -158,6 +173,10 @@ def get_tar_path_from_txts(txt_path, islocal, proportion=1):
             lines = random.sample(lines, int(proportion * len(lines)))
         return lines
 
+"""
+get_mix_lambda() 및 do_mixup() 함수:
+믹스업(mixup) 데이터 증강 기법을 구현. 이 기법은 두 샘플을 선형적으로 혼합하여 모델의 일반화 성능을 향상시키는 데 도움이 됨
+"""
 
 def get_mix_lambda(mixup_alpha, batch_size):
     mixup_lambdas = [
@@ -180,6 +199,10 @@ def do_mixup(x, mixup_lambda):
     ).transpose(0, -1)
     return out
 
+"""
+interpolate() 및 pad_framewise_output() 함수:
+시계열 데이터나 프레임 단위 출력을 다루기 위한 함수. 예를 들어, CNN에서 다운샘플링으로 인한 해상도 감소를 보정하거나 출력 길이를 입력 데이터와 일치시키는 데 사용
+"""
 
 def interpolate(x, ratio):
     """Interpolate data in time domain. This is used to compensate the
@@ -258,6 +281,10 @@ def get_data_from_log(txt_path):
         }
     return train_data, val_data
 
+"""
+save_p(), load_p(), save_json(), load_json() 함수:
+객체, 설정, 결과 등을 저장하고 로드하는 데 사용되는 직렬화 및 역직렬화 함수. 이를 통해 모델의 설정이나 실험 결과를 파일로 쉽게 저장하고 재사용할 수 있음
+"""
 
 def save_p(obj, filename):
     import pickle
@@ -300,6 +327,10 @@ def load_json(name):
         data = json.load(fp)
     return data
 
+"""
+load_class_label() 함수:
+클래스 레이블 정보를 로드하는 함수. 다양한 파일 형식(pickle, json, numpy, csv 등)을 지원하여 다양한 데이터 소스에서 클래스 레이블을 효율적으로 사용할 수 있게 함
+"""
 
 def load_class_label(path):
     # https://stackoverflow.com/questions/48004243/how-to-share-large-read-only-dictionary-list-across-processes-in-multiprocessing
@@ -327,6 +358,10 @@ def load_class_label(path):
 
 from torch import optim
 
+"""
+get_optimizer() 함수:
+모델 학습을 위한 옵티마이저를 생성. AdamW, SGD, Adam 등 다양한 옵티마이저를 지원하여 학습 과정을 사용자 정의
+"""
 
 def get_optimizer(params, lr, betas, eps, momentum, optimizer_name):
     if optimizer_name.lower() == "adamw":

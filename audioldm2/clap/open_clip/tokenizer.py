@@ -12,6 +12,9 @@ import ftfy
 import regex as re
 import torch
 
+"""
+default_bpe() 함수: Byte Pair Encoding(BPE) 어휘 파일의 기본 경로를 반환.
+"""
 
 @lru_cache()
 def default_bpe():
@@ -19,6 +22,9 @@ def default_bpe():
         os.path.dirname(os.path.abspath(__file__)), "bpe_simple_vocab_16e6.txt.gz"
     )
 
+"""
+bytes_to_unicode() 함수: UTF-8 바이트와 해당 유니코드 문자 사이의 매핑을 생성
+"""
 
 @lru_cache()
 def bytes_to_unicode():
@@ -46,6 +52,9 @@ def bytes_to_unicode():
     cs = [chr(n) for n in cs]
     return dict(zip(bs, cs))
 
+"""
+get_pairs() 함수: 단어 내의 모든 인접 문자 쌍을 찾아 반환
+"""
 
 def get_pairs(word):
     """Return set of symbol pairs in a word.
@@ -58,6 +67,9 @@ def get_pairs(word):
         prev_char = char
     return pairs
 
+"""
+basic_clean() 및 whitespace_clean() 함수: 텍스트를 정제하는 기본적인 전처리 단계를 수행
+"""
 
 def basic_clean(text):
     text = ftfy.fix_text(text)
@@ -70,6 +82,10 @@ def whitespace_clean(text):
     text = text.strip()
     return text
 
+"""
+SimpleTokenizer 클래스: 
+BPE 기반 토크나이저를 구현. 이 클래스는 텍스트를 토큰화하고, 토큰을 숫자로 인코딩하며, 인코딩된 토큰을 다시 텍스트로 디코딩하는 기능을 제공
+"""
 
 class SimpleTokenizer(object):
     def __init__(self, bpe_path: str = default_bpe(), special_tokens=None):

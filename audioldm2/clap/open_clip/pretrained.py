@@ -74,6 +74,10 @@ _PRETRAINED = {
     "ViT-L-14": _VITL14,
 }
 
+"""
+list_pretrained
+이 함수는 사용 가능한 사전 훈련된 모델의 목록을 반환. 모델 이름과 사전 훈련 태그(tag)를 조합한 문자열 또는 튜플 형태로 결과를 제공
+"""
 
 def list_pretrained(as_str: bool = False):
     """returns list of pretrained models
@@ -85,6 +89,10 @@ def list_pretrained(as_str: bool = False):
         for t in _PRETRAINED[k].keys()
     ]
 
+"""
+list_pretrained_tag_models
+특정 태그(tag)에 해당하는 모든 모델을 반환합. 예를 들어, openai 태그에 해당하는 모든 모델을 조회할 수 있음.
+"""
 
 def list_pretrained_tag_models(tag: str):
     """return all models having the specified pretrain tag"""
@@ -94,6 +102,10 @@ def list_pretrained_tag_models(tag: str):
             models.append(k)
     return models
 
+"""
+list_pretrained_model_tags
+지정된 모델 아키텍처에 대해 사용 가능한 모든 사전 훈련 태그를 반환.
+"""
 
 def list_pretrained_model_tags(model: str):
     """return all pretrain tags for the specified model architecture"""
@@ -102,6 +114,10 @@ def list_pretrained_model_tags(model: str):
         tags.extend(_PRETRAINED[model].keys())
     return tags
 
+"""
+get_pretrained_url
+지정된 모델과 태그에 해당하는 사전 훈련된 모델의 URL 주소를 반환.
+"""
 
 def get_pretrained_url(model: str, tag: str):
     if model not in _PRETRAINED:
@@ -111,6 +127,12 @@ def get_pretrained_url(model: str, tag: str):
         return ""
     return model_pretrained[tag]
 
+"""
+download_pretrained
+지정된 URL에서 사전 훈련된 모델을 다운로드합니다. 다운로드가 완료되면 해당 파일의 경로를 반환. 
+파일이 이미 존재하고 SHA256 체크섬이 일치하는 경우 다운로드를 건너뛰고 기존 파일의 경로를 반환. 
+SHA256 체크섬이 제공되지 않은 경우 파일의 존재 여부만 확인.
+"""
 
 def download_pretrained(url: str, root: str = os.path.expanduser("~/.cache/clip")):
     os.makedirs(root, exist_ok=True)
