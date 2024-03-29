@@ -124,6 +124,62 @@ class Generator(torch.nn.Module):
         remove_weight_norm(self.conv_pre)
         remove_weight_norm(self.conv_post)
 
+class DiscriminatorE(torch.nn.Module):
+    def __init__(self, kernel_size=5, stride=3, use_spectral_norm=False):
+        super(DiscriminatorE, self).__init__()
+        norm_f = weight_norm if not use_spectral_norm else spectral_norm
+        self.convs = nn.ModuleList([
+            norm_f(nn.Conv2d(1, 32, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, stride), 0))),
+            norm_f(nn.Conv2d(32, 128, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, stride), 0))),
+            norm_f(nn.Conv2d(128, 512, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, stride), 0))),
+            norm_f(nn.Conv2d(512, 1024, (kernel_size, 1), (stride, 1), padding=(get_padding(kernel_size, stride), 0))),
+            norm_f(nn.Conv2d(1024, 1024, (kernel_size, 1), 1, padding=(2, 0))),
+        ])
+        self.conv_post = norm_f(nn.Conv2d(1024, 1, (3, 1), 1, padding=(1, 0)))
+
+    def forward(self, x):
+        # Assume x is the envelope of the original signal
+        fmap = []
+
+        b, c, t = x.shape
+        x = x.view(b, c, t, 1)  # Reshape for Conv2D
+
+        for l in self.convs:
+            x = l(x)
+            x = F.leaky_relu(x, negative_slope=0.2)
+            fmap.append(x)
+        x = self.conv_post(x)
+        fmap.append(x)
+        x = torch.flatten(x, 1)
+
+        return x, fmap
+
+class MultiEnvelopeDiscriminator(torch.nn.Module):
+    def __init__(self):
+        super(MultiEnvelopeDiscriminator, self).__init__()
+        # You might use different strategies for each discriminator to capture
+        # various characteristics of the envelope
+        self.discriminators = nn.ModuleList([
+            DiscriminatorE(),
+            DiscriminatorE(),
+            DiscriminatorE(),
+        ])
+
+    def forward(self, envelope, envelope_hat):
+        y_d_rs = []
+        y_d_gs = []
+        fmap_rs = []
+        fmap_gs = []
+        for d in self.discriminators:
+            y_d_r, fmap_r = d(envelope)
+            y_d_g, fmap_g = d(envelope_hat)
+            y_d_rs.append(y_d_r)
+            fmap_rs.append(fmap_r)
+            y_d_gs.append(y_d_g)
+            fmap_gs.append(fmap_g)
+
+        return y_d_rs, y_d_gs, fmap_rs, fmap_gs
+
 
 class DiscriminatorP(torch.nn.Module):
     def __init__(self, period, kernel_size=5, stride=3, use_spectral_norm=False):
