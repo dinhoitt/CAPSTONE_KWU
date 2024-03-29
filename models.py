@@ -157,8 +157,7 @@ class DiscriminatorE(torch.nn.Module):
 class MultiEnvelopeDiscriminator(torch.nn.Module):
     def __init__(self):
         super(MultiEnvelopeDiscriminator, self).__init__()
-        # You might use different strategies for each discriminator to capture
-        # various characteristics of the envelope
+        # 여기서 구체적인 구조 및 개발
         self.discriminators = nn.ModuleList([
             DiscriminatorE(),
             DiscriminatorE(),
