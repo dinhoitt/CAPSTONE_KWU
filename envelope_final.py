@@ -57,16 +57,16 @@ class Envelope:
         return np.abs(hilbert(self.signal))
 
     def apply_lowpass_and_compute_envelope(self):
-        max_freq = self.find_max_freq()
-        if self.f_times == 0:
-            cutoff = max_freq
+        if self.f_times == -1:
+            envelope_lower = -np.abs(hilbert(-self.signal))
+            return envelope_lower
+        elif self.f_times == 0:
+            return self.signal
         else:
-            cutoff = max_freq / self.f_times
-        lpf = LowPassFilter(self.filter, cutoff, self.sr, self.order, self.rp, self.rs)
-        filtered_signal = lpf.filter_data(self.signal)
-        return np.abs(hilbert(filtered_signal))
-
-
+            lpf = LowPassFilter(self.filter, self.cutoff, self.sr, self.order, self.rp, self.rs)
+            filtered_signal = lpf.filter_data(self.signal)
+            return np.abs(hilbert(filtered_signal))
+        
 
 # 사용 예
 # /LJ001-0001.wav
