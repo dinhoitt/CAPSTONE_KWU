@@ -36,9 +36,8 @@ class LowPassFilter:
         return self._apply_filter(b, a, data)
 
 class Envelope:
-    def __init__(self, signal, sr, f_times, filter='butter', order=5, rp=0.5, rs=40):
-        self.signal = signal
-        self.sr = sr
+    def __init__(self, x, f_times, filter='butter', order=5, rp=0.5, rs=40):
+        self.signal, self.sr = librosa.load(x)
         self.f_times = f_times
         self.filter = filter
         self.order = order
@@ -69,34 +68,37 @@ class Envelope:
 
 
 
-'''
 # 사용 예
 # /LJ001-0001.wav
-audio_path = 'C:/LDMsample/MED/LJ001-0002.wav'
-signal, sr = librosa.load(audio_path, sr=None)
-envelope_2 = Envelope(audio_path, f_times=0)
-envelope_3 = Envelope(audio_path, f_times=1)
-envelope_4 = Envelope(audio_path, f_times=1, filter='cheby1')
-envelope_5 = Envelope(audio_path, f_times=1, filter='ellip')
-envelope_6 = Envelope(audio_path, f_times=1, filter='bessel')
+
+def main():
+    audio_path = 'C:/LDMsample/MED/LJ001-0002.wav'
+    envelope_2 = Envelope(audio_path, f_times=0)
+    envelope_3 = Envelope(audio_path, f_times=1)
+    envelope_4 = Envelope(audio_path, f_times=1, filter='cheby1')
+    envelope_5 = Envelope(audio_path, f_times=1, filter='ellip')
+    envelope_6 = Envelope(audio_path, f_times=1, filter='bessel')
 
 
-fig, axs = plt.subplots(5, 1, figsize=(14, 10), sharex=True)
+    fig, axs = plt.subplots(5, 1, figsize=(14, 10), sharex=True)
 
-# 각 Subplot에 대한 데이터와 레이블 설정
-envelopes = [envelope_2.envelope, envelope_3.envelope, envelope_4.envelope, envelope_5.envelope, envelope_6.envelope]
-titles = ['Envelope 2', 'Envelope 3', 'Envelope 4', 'Envelope 5', 'Envelope 6']
+    # 각 Subplot에 대한 데이터와 레이블 설정
+    envelopes = [envelope_2.envelope, envelope_3.envelope, envelope_4.envelope, envelope_5.envelope, envelope_6.envelope]
+    titles = ['Envelope 2', 'Envelope 3', 'Envelope 4', 'Envelope 5', 'Envelope 6']
 
-# 각 Envelope를 서브플롯에 그리기
-for ax, envelope, title in zip(axs, envelopes, titles):
-    ax.plot(envelope)
-    ax.set_title(title)
-    ax.set_ylabel('Amplitude')
+    # 각 Envelope를 서브플롯에 그리기
+    for ax, envelope, title in zip(axs, envelopes, titles):
+        ax.plot(envelope)
+        ax.set_title(title)
+        ax.set_ylabel('Amplitude')
 
-# X 축 레이블 설정
-axs[-1].set_xlabel('Sample Index')
+    # X 축 레이블 설정
+    axs[-1].set_xlabel('Sample Index')
 
-# Plot 표시
-plt.tight_layout()
-plt.show()
-'''
+    # Plot 표시
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == '__main__':
+    main()

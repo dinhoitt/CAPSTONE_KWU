@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 from utils import init_weights, get_padding
-from envelope_pre import Envelope
+from envelope_final import Envelope
 
 LRELU_SLOPE = 0.1
 

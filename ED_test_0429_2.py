@@ -4,10 +4,22 @@ import torch.nn as nn
 from torch.nn import Conv1d, ConvTranspose1d, AvgPool1d, Conv2d
 from torch.nn.utils import weight_norm, remove_weight_norm, spectral_norm
 from utils import init_weights, get_padding
-from envelope import Envelope
+from envelope_final import Envelope
+
 
 LRELU_SLOPE = 0.1
 
+
+#  feature loss 정의
+def feature_loss(fmap_r, fmap_g):
+    loss = 0
+    for dr, dg in zip(fmap_r, fmap_g):
+        for rl, gl in zip(dr, dg):
+            loss += torch.mean(torch.abs(rl - gl))
+
+    return loss*2
+
+'''
 class DiscriminatorE(nn.Module):
     def __init__(self, signal, sr, f_times, use_spectral_norm=False):
         super(DiscriminatorE, self).__init__()
@@ -38,15 +50,48 @@ class DiscriminatorE(nn.Module):
         x = torch.flatten(x, 1, -1)
 
         return x, fmap
+'''
+
+class DiscriminatorE(nn.Module):
+    def __init__(self, f_times, use_spectral_norm=False):
+        super(DiscriminatorE, self).__init__()
+        self.f_times = f_times
+        norm_f = spectral_norm if use_spectral_norm else weight_norm
+
+        self.convs = nn.ModuleList([
+            norm_f(nn.Conv1d(1, 128, 15, 1, padding=7)),
+            norm_f(nn.Conv1d(128, 128, 41, 2, groups=4, padding=20)),
+            norm_f(nn.Conv1d(128, 256, 41, 2, groups=16, padding=20)),
+            norm_f(nn.Conv1d(256, 512, 41, 4, groups=16, padding=20)),
+            norm_f(nn.Conv1d(512, 1024, 41, 4, groups=16, padding=20)),
+            norm_f(nn.Conv1d(1024, 1024, 41, 1, groups=16, padding=20)),
+            norm_f(nn.Conv1d(1024, 1024, 5, 1, padding=2)),
+        ])
+        self.conv_post = norm_f(nn.Conv1d(1024, 1, 3, 1, padding=1))
+
+    def forward(self, x):
+        fmap = []
+        x = Envelope(x, f_times=self.f_times).envelope
+        for l in self.convs:
+            x = l(x)
+            x = F.leaky_relu(x, self.LRELU_SLOPE)
+            fmap.append(x)
+        x = self.conv_post(x)
+        fmap.append(x)
+        x = torch.flatten(x, 1, -1)
+        return x, fmap
+
 
 
 class MultiEnvelopeDiscriminator(nn.Module):
-    def __init__(self, signal, sr):
+    def __init__(self):
         super(MultiEnvelopeDiscriminator, self).__init__()
         f_times_values = [-1, 0, 1, 2, 3]
         self.discriminators = nn.ModuleList(
-            [DiscriminatorE(signal, sr, f_times=f) for f in f_times_values]
+            [DiscriminatorE(f_times=f) for f in f_times_values]
         )
+        self.meanpools = nn.ModuleList([nn.AvgPool1d(4, 2, padding=1) for _ in range(len(f_times_values)-1)])
+
 
     def forward(self, y, y_hat):
         y_d_rs = []
@@ -69,7 +114,7 @@ class MultiEnvelopeDiscriminator(nn.Module):
         return y_d_rs, y_d_gs, fmap_rs, fmap_gs
 
 
-# 르넷 블록 정의 
+# 르넷 블록 정의   
 class ResBlock1(torch.nn.Module):
     def __init__(self, h, channels, kernel_size=3, dilation=(1, 3, 5)):
         super(ResBlock1, self).__init__()
