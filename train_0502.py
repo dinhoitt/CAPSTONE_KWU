@@ -37,8 +37,10 @@ epochs = 50
 learning_rate = 0.0001
 device ='cpu'
 
-data_path = "C:\\aproject\\hifi-gan\\LJSpeech-1.1\\LJSpeech-1.1\\wavs"
-file_list = os.listdir(data_path)
+ 
+data_path = 'C:/aproject/hifi-gan/LJSpeech-1.1/LJSpeech-1.1/wavs'
+
+file_list = [os.path.join(data_path, fname) for fname in os.listdir(data_path)]
 random.shuffle(file_list)
 file_list = file_list[:100]
 
@@ -57,7 +59,8 @@ optimizer_g = torch.optim.Adam(generator.parameters(), lr=learning_rate)
 optimizer_d = torch.optim.Adam(discriminator.parameters(), lr=learning_rate)
 
 for epoch in range(epochs):
-    for i, (mel, audio) in enumerate(data_loader):
+    for i, data in enumerate(data_loader):
+        mel, audio, _, _ = data  # filename과 mel_loss는 사용하지 않음
         mel = mel.to(device)
         audio = audio.to(device)
 

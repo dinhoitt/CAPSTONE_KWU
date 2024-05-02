@@ -2,6 +2,8 @@ import librosa
 import numpy as np
 from scipy.signal import hilbert
 import matplotlib.pyplot as plt
+import torch
+import torchaudio  # PyTorch의 오디오 처리 라이브러리
 
 
 class LowPassFilter:
@@ -37,7 +39,13 @@ class LowPassFilter:
 
 class Envelope:
     def __init__(self, x, f_times, filter='butter', order=5, rp=0.5, rs=40):
-        self.signal, self.sr = librosa.load(x)
+        if isinstance(x, torch.Tensor):
+            self.signal = x
+            self.sr = 16000  # 적절한 샘플링 레이트로 설정해야 할 수 있습니다
+        else:
+            # x가 파일 경로일 경우 로드
+            self.signal, self.sr = librosa.load(x)
+            
         self.f_times = f_times
         self.max_freq = self.find_max_freq()
         if self.f_times == 0:
@@ -75,9 +83,10 @@ class Envelope:
 
 # 사용 예
 # /LJ001-0001.wav
+# C:/aproject/hifi-gan/LJSpeech-1.1/LJSpeech-1.1/wavs/
 
 def main():
-    audio_path = 'C:/LDMsample/MED/LJ001-0002.wav'
+    audio_path = 'C:/aproject/hifi-gan/LJSpeech-1.1/LJSpeech-1.1/wavs/LJ001-0025.wav'
     envelope_2 = Envelope(audio_path, f_times=1)
     envelope_3 = Envelope(audio_path, f_times=-1)
     envelope_4 = Envelope(audio_path, f_times=1/2)
