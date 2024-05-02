@@ -1,4 +1,4 @@
-from ED_test_0429_2 import MultiEnvelopeDiscriminator, Generator, generator_loss, discriminator_loss, feature_loss
+from MED_final import MultiEnvelopeDiscriminator, Generator, generator_loss, discriminator_loss, feature_loss
 import torch
 import os
 import numpy as np
@@ -34,13 +34,30 @@ class VoiceDataset(Dataset):
     def __len__(self):
         return len(self.filenames)
 
-    def __getitem__(self, idx):
-        audio_path = self.filenames[idx]
-        wav = load_wav(audio_path)
-        mel = mel_spectrogram(y = wav.squeeze(1), n_fft=1024, num_mels=80, sampling_rate=22050, hop_size=256, win_size=1024, fmin=0, fmax=8000)  # 멜 스펙트로그램으로 변경
-        if self.transform:
-            mel = self.transform(mel)
-        return mel, wav  # wav를 반환하도록 수정
+def __getitem__(self, idx):
+    audio_path = self.filenames[idx]
+    wav = load_wav(audio_path)
+
+    # load_wav가 튜플을 반환할 경우, 첫 번째 요소를 사용
+    if isinstance(wav, tuple):
+        wav = wav[0]
+
+    # 원하는 차원 조정이 필요할 경우에만 squeeze 사용
+    if wav.dim() > 1:
+        wav = wav.squeeze(1)
+
+    mel = mel_spectrogram(
+        y=wav,
+        n_fft=1024,
+        num_mels=80,
+        sampling_rate=22050,
+        hop_size=256,
+        win_size=1024,
+        fmin=0,
+        fmax=8000
+    )  # 멜 스펙트로그램으로 변경
+    return mel, wav
+
     
 discriminator = MultiEnvelopeDiscriminator()
 

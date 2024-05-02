@@ -39,6 +39,11 @@ class Envelope:
     def __init__(self, x, f_times, filter='butter', order=5, rp=0.5, rs=40):
         self.signal, self.sr = librosa.load(x)
         self.f_times = f_times
+        self.max_freq = self.find_max_freq()
+        if self.f_times == 0:
+            self.cutoff = 0  # 또는 적절한 기본값 설정
+        else:
+            self.cutoff = self.max_freq / self.f_times
         self.filter = filter
         self.order = order
         self.rp = rp
@@ -73,11 +78,11 @@ class Envelope:
 
 def main():
     audio_path = 'C:/LDMsample/MED/LJ001-0002.wav'
-    envelope_2 = Envelope(audio_path, f_times=0)
-    envelope_3 = Envelope(audio_path, f_times=1)
-    envelope_4 = Envelope(audio_path, f_times=1, filter='cheby1')
-    envelope_5 = Envelope(audio_path, f_times=1, filter='ellip')
-    envelope_6 = Envelope(audio_path, f_times=1, filter='bessel')
+    envelope_2 = Envelope(audio_path, f_times=1)
+    envelope_3 = Envelope(audio_path, f_times=-1)
+    envelope_4 = Envelope(audio_path, f_times=1/2)
+    envelope_5 = Envelope(audio_path, f_times=2)
+    envelope_6 = Envelope(audio_path, f_times=3)
 
 
     fig, axs = plt.subplots(5, 1, figsize=(14, 10), sharex=True)

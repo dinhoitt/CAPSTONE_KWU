@@ -335,4 +335,3 @@ def generator_loss(disc_outputs):
         loss += l
 
     return loss, gen_losses
-
