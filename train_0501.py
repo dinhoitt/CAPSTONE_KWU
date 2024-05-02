@@ -37,7 +37,7 @@ class VoiceDataset(Dataset):
     def __getitem__(self, idx):
         audio_path = self.filenames[idx]
         wav = load_wav(audio_path)
-        mel = mel_spectrogram(wav)  # 멜 스펙트로그램으로 변경
+        mel = mel_spectrogram(y = wav.squeeze(1), n_fft=1024, num_mels=80, sampling_rate=22050, hop_size=256, win_size=1024, fmin=0, fmax=8000)  # 멜 스펙트로그램으로 변경
         if self.transform:
             mel = self.transform(mel)
         return mel, wav  # wav를 반환하도록 수정
