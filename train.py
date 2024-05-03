@@ -63,7 +63,7 @@ def train(rank, a, h):
     if os.path.isdir(a.checkpoint_path):
         cp_g = scan_checkpoint(a.checkpoint_path, 'g_')
         cp_do = scan_checkpoint(a.checkpoint_path, 'do_')
-
+    # 여기까지 잘 나오는거 확인
     # load the latest checkpoint if exists
     steps = 0
     if cp_g is None or cp_do is None:
@@ -251,6 +251,10 @@ def train(rank, a, h):
             train_sampler.set_epoch(epoch)
 
         for i, batch in enumerate(train_loader):
+
+            if batch is None:
+                continue
+
             if rank == 0:
                 start_b = time.time()
             x, y, _, y_mel = batch
@@ -394,7 +398,7 @@ def main():
     parser.add_argument('--checkpoint_path', default='exp/bigvgan')
     parser.add_argument('--config', default='')
 
-    parser.add_argument('--training_epochs', default=100000, type=int)
+    parser.add_argument('--training_epochs', default=10, type=int)
     parser.add_argument('--stdout_interval', default=5, type=int)
     parser.add_argument('--checkpoint_interval', default=50000, type=int)
     parser.add_argument('--summary_interval', default=100, type=int)
@@ -436,8 +440,12 @@ def main():
         pass
 
     if h.num_gpus > 1:
+        print('train.py 439 line')
         mp.spawn(train, nprocs=h.num_gpus, args=(a, h,))
     else:
+        print('train.py 442 line')
+        print('h : ')
+        print(h)
         train(0, a, h)
 
 
